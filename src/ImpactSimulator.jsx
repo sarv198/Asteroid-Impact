@@ -20,6 +20,7 @@ L.Icon.Default.mergeOptions({
 function LocationMarker({ onLocationSelect, position }) {
     useMapEvents({
         click(e) {
+            console.log('Map clicked at:', e.latlng);
             onLocationSelect(e.latlng);
         },
     });
@@ -31,7 +32,7 @@ function ImpactSimulator() {
     // --- State for Inputs and Results ---
     const [density, setDensity] = useState(7800); // Default: Iron (kg/m³)
     const [speed, setSpeed] = useState(17000); // Default: m/s
-    const [diameter, setDiameter] = useState(50); // Default: meters
+    const [diameter, setDiameter] = useState(500); // Default: meters (larger for visibility)
     const [impactLocation, setImpactLocation] = useState({ lat: 40.7128, lng: -74.0060 }); // Default to New York City
     const [impactResults, setImpactResults] = useState(null);
     const [error, setError] = useState(null);
@@ -80,16 +81,42 @@ function ImpactSimulator() {
     const circles = useMemo(() => {
         if (!impactResults) return [];
         // Leaflet Circle radius is in meters, so convert km to m (1km = 1000m)
-        return [
-            { radius: impactResults.light_radius_km * 1000, color: '#FFD700', fillColor: '#FFD700', fillOpacity: 0.2, weight: 3, name: "Light Damage" },
-            { radius: impactResults.moderate_radius_km * 1000, color: '#FF8C00', fillColor: '#FF8C00', fillOpacity: 0.2, weight: 3, name: "Moderate Damage" },
-            { radius: impactResults.severe_radius_km * 1000, color: '#FF0000', fillColor: '#FF0000', fillOpacity: 0.2, weight: 3, name: "Severe Damage" },
+        // Add minimum radius to ensure visibility
+        const minRadius = 1000; // 1km minimum radius
+        const circleData = [
+            { 
+                radius: Math.max(impactResults.light_radius_km * 1000, minRadius), 
+                color: '#FFD700', 
+                fillColor: '#FFD700', 
+                fillOpacity: 0.4, 
+                weight: 5, 
+                name: "Light Damage" 
+            },
+            { 
+                radius: Math.max(impactResults.moderate_radius_km * 1000, minRadius * 0.7), 
+                color: '#FF8C00', 
+                fillColor: '#FF8C00', 
+                fillOpacity: 0.4, 
+                weight: 5, 
+                name: "Moderate Damage" 
+            },
+            { 
+                radius: Math.max(impactResults.severe_radius_km * 1000, minRadius * 0.4), 
+                color: '#FF0000', 
+                fillColor: '#FF0000', 
+                fillOpacity: 0.4, 
+                weight: 5, 
+                name: "Severe Damage" 
+            },
         ].sort((a, b) => b.radius - a.radius); // Draw largest first
+        
+        console.log('Circle data:', circleData);
+        return circleData;
     }, [impactResults]);
 
     // Calculate map zoom level based on the size of the impact area
     const mapZoom = impactResults 
-        ? (impactResults.light_radius_km > 200 ? 3 : (impactResults.light_radius_km > 50 ? 5 : 8))
+        ? (impactResults.light_radius_km > 100 ? 6 : (impactResults.light_radius_km > 10 ? 8 : 10))
         : 10; // Better default zoom for New York City
 
     return (
@@ -128,6 +155,7 @@ function ImpactSimulator() {
                 <h3 style={{ marginTop: '30px', borderTop: '1px solid #eee', paddingTop: '20px' }}>Impact Analysis</h3>
                 
                 <p>Location: ({formatNumber(impactLocation.lat, 4)}°, {formatNumber(impactLocation.lng, 4)}°)</p>
+                <p>Status: {impactResults ? `Circles should be visible on map` : `No impact data - click "Run Impact Simulation"`}</p>
 
                 {error && <p style={{ color: 'red', fontWeight: 'bold' }}>Calculation Error: {error}</p>}
 
@@ -168,19 +196,26 @@ function ImpactSimulator() {
                     <LocationMarker onLocationSelect={handleLocationSelect} position={impactLocation} />
                     
                     {/* Draw the impact circles */}
-                    {impactResults && circles.map((circle, index) => (
-                        <Circle
-                            key={index}
-                            center={[impactLocation.lat, impactLocation.lng]}
-                            radius={circle.radius}
-                            pathOptions={{ 
-                                color: circle.color, 
-                                fillColor: circle.fillColor, 
-                                fillOpacity: circle.fillOpacity, 
-                                weight: circle.weight 
-                            }}
-                        />
-                    ))}
+                    {impactResults && circles.length > 0 && circles.map((circle, index) => {
+                        console.log(`Rendering circle ${index}:`, {
+                            center: [impactLocation.lat, impactLocation.lng],
+                            radius: circle.radius,
+                            color: circle.color
+                        });
+                        return (
+                            <Circle
+                                key={`circle-${index}`}
+                                center={[impactLocation.lat, impactLocation.lng]}
+                                radius={circle.radius}
+                                pathOptions={{ 
+                                    color: circle.color, 
+                                    fillColor: circle.fillColor, 
+                                    fillOpacity: circle.fillOpacity, 
+                                    weight: circle.weight 
+                                }}
+                            />
+                        );
+                    })}
                 </MapContainer>
             </div>
         </div>
