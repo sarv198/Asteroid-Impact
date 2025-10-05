@@ -32,7 +32,7 @@ function ImpactSimulator() {
     const [density, setDensity] = useState(7800); // Default: Iron (kg/m³)
     const [speed, setSpeed] = useState(17000); // Default: m/s
     const [diameter, setDiameter] = useState(50); // Default: meters
-    const [impactLocation, setImpactLocation] = useState({ lat: 0, lng: 0 }); // Default center
+    const [impactLocation, setImpactLocation] = useState({ lat: 40.7128, lng: -74.0060 }); // Default to New York City
     const [impactResults, setImpactResults] = useState(null);
     const [error, setError] = useState(null);
 
@@ -46,13 +46,16 @@ function ImpactSimulator() {
     const runCalculation = useCallback(() => {
         try {
             setError(null);
+            console.log('Running calculation with:', { density, speed, diameter });
             const result = calculateImpactRadius(
                 density,
                 speed,
                 diameter
             );
+            console.log('Calculation result:', result);
             setImpactResults(result);
         } catch (err) {
+            console.error('Calculation error:', err);
             setError(err.message);
             setImpactResults(null);
         }
@@ -78,16 +81,16 @@ function ImpactSimulator() {
         if (!impactResults) return [];
         // Leaflet Circle radius is in meters, so convert km to m (1km = 1000m)
         return [
-            { radius: impactResults.light_radius_km * 1000, color: 'yellow', fill: false, weight: 3, name: "Light Damage" },
-            { radius: impactResults.moderate_radius_km * 1000, color: 'orange', fill: false, weight: 3, name: "Moderate Damage" },
-            { radius: impactResults.severe_radius_km * 1000, color: 'red', fill: false, weight: 3, name: "Severe Damage" },
+            { radius: impactResults.light_radius_km * 1000, color: '#FFD700', fillColor: '#FFD700', fillOpacity: 0.2, weight: 3, name: "Light Damage" },
+            { radius: impactResults.moderate_radius_km * 1000, color: '#FF8C00', fillColor: '#FF8C00', fillOpacity: 0.2, weight: 3, name: "Moderate Damage" },
+            { radius: impactResults.severe_radius_km * 1000, color: '#FF0000', fillColor: '#FF0000', fillOpacity: 0.2, weight: 3, name: "Severe Damage" },
         ].sort((a, b) => b.radius - a.radius); // Draw largest first
     }, [impactResults]);
 
     // Calculate map zoom level based on the size of the impact area
     const mapZoom = impactResults 
         ? (impactResults.light_radius_km > 200 ? 3 : (impactResults.light_radius_km > 50 ? 5 : 8))
-        : 2;
+        : 10; // Better default zoom for New York City
 
     return (
         <div style={{ display: 'flex', gap: '20px', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
@@ -170,7 +173,12 @@ function ImpactSimulator() {
                             key={index}
                             center={[impactLocation.lat, impactLocation.lng]}
                             radius={circle.radius}
-                            pathOptions={{ color: circle.color, fillColor: circle.color, fillOpacity: 0.1, weight: circle.weight }}
+                            pathOptions={{ 
+                                color: circle.color, 
+                                fillColor: circle.fillColor, 
+                                fillOpacity: circle.fillOpacity, 
+                                weight: circle.weight 
+                            }}
                         />
                     ))}
                 </MapContainer>
